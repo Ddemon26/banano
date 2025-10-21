@@ -1,13 +1,14 @@
 const std = @import("std");
+const ManagedArrayList = std.array_list.Managed;
 
 /// Represents a line of text in the editor
 pub const Line = struct {
     const Self = @This();
 
-    chars: std.ArrayList(u8),
+    chars: ManagedArrayList(u8),
 
     pub fn init(allocator: std.mem.Allocator) Self {
-        return Self{ .chars = std.ArrayList(u8).init(allocator) };
+        return Self{ .chars = ManagedArrayList(u8).init(allocator) };
     }
 
     pub fn deinit(self: *Self) void {
@@ -24,7 +25,7 @@ pub const Line = struct {
         }
     }
 
-    pub fn appendString(self: *Self, str: []const u8) !void {
+    pub fn appendSlice(self: *Self, str: []const u8) !void {
         try self.chars.appendSlice(str);
     }
 
@@ -45,12 +46,12 @@ pub const Line = struct {
 pub const GapBuffer = struct {
     const Self = @This();
 
-    buffer: std.ArrayList(u8),
+    buffer: ManagedArrayList(u8),
     gap_start: usize,
     gap_end: usize,
 
     pub fn init(allocator: std.mem.Allocator) Self {
-        var buffer = std.ArrayList(u8).init(allocator);
+        var buffer = ManagedArrayList(u8).init(allocator);
         buffer.resize(1024) catch unreachable;
 
         return Self{
@@ -121,13 +122,13 @@ pub const GapBuffer = struct {
         self.gap_start += str.len;
     }
 
-    pub fn deleteChar(self: *Self) void {
+    pub fn deleteChar(self: *Self) !void {
         if (self.gap_start > 0) {
             self.gap_start -= 1;
         }
     }
 
-    pub fn deleteCharForward(self: *Self) void {
+    pub fn deleteCharForward(self: *Self) !void {
         if (self.gap_end < self.buffer.items.len) {
             self.gap_end += 1;
         }
@@ -163,7 +164,7 @@ pub const TextBuffer = struct {
     const Self = @This();
 
     allocator: std.mem.Allocator,
-    lines: std.ArrayList(Line),
+    lines: ManagedArrayList(Line),
     cursor_x: usize,
     cursor_y: usize,
     filename: ?[]const u8,
@@ -172,7 +173,7 @@ pub const TextBuffer = struct {
     pub fn init(allocator: std.mem.Allocator) Self {
         return Self{
             .allocator = allocator,
-            .lines = std.ArrayList(Line).init(allocator),
+            .lines = ManagedArrayList(Line).init(allocator),
             .cursor_x = 0,
             .cursor_y = 0,
             .filename = null,
@@ -226,7 +227,7 @@ pub const TextBuffer = struct {
         self.dirty = true;
     }
 
-    pub fn deleteChar(self: *Self) void {
+    pub fn deleteChar(self: *Self) !void {
         if (self.lines.items.len == 0) return;
 
         if (self.cursor_x > 0) {
@@ -248,7 +249,7 @@ pub const TextBuffer = struct {
         }
     }
 
-    pub fn deleteCharForward(self: *Self) void {
+    pub fn deleteCharForward(self: *Self) !void {
         if (self.lines.items.len == 0) return;
 
         const line = &self.lines.items[self.cursor_y];
@@ -387,17 +388,13 @@ pub const TextBuffer = struct {
             const file = try std.fs.cwd().createFile(filename, .{});
             defer file.close();
 
-            var buffered_writer = std.io.bufferedWriter(file.writer());
-            const writer = buffered_writer.writer();
-
             for (self.lines.items, 0..) |line, i| {
-                try writer.writeAll(line.slice());
+                try file.writeAll(line.slice());
                 if (i < self.lines.items.len - 1) {
-                    try writer.writeByte('\n');
+                    const newline = [_]u8{'\n'};
+                    try file.writeAll(&newline);
                 }
             }
-
-            try buffered_writer.flush();
         }
     }
 };

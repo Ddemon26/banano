@@ -26,13 +26,20 @@ pub const Key = union(enum) {
     char: u8,
 
     pub fn fromByte(byte: u8) Key {
-        return switch (byte) {
-            1...26 => .{ .char = byte + 'a' - 1 }, // Ctrl+A to Ctrl+Z
-            '\r' => .enter,
-            '\t' => .tab,
-            127 => .backspace,
-            else => .{ .char = byte },
-        };
+        if (byte == '\r' or byte == '\n') {
+            return .enter;
+        }
+        if (byte == '\t') {
+            return .tab;
+        }
+        if (byte == 127) {
+            return .backspace;
+        }
+        if (byte >= 1 and byte <= 26) {
+            // Ctrl+A to Ctrl+Z
+            return .{ .char = byte + 'a' - 1 };
+        }
+        return .{ .char = byte };
     }
 };
 
@@ -67,9 +74,9 @@ pub const Terminal = struct {
     }
 
     pub fn readKey() !Key {
-        const stdin = std.io.getStdIn();
         var buf: [3]u8 = undefined;
-        const n = try stdin.read(&buf);
+        var stdin = std.fs.File.stdin();
+        const n = try stdin.read(buf[0..]);
 
         if (n == 0) return error.EndOfFile;
 

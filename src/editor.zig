@@ -1,4 +1,5 @@
 const std = @import("std");
+const ManagedArrayList = std.array_list.Managed;
 const terminal = @import("terminal.zig");
 const buffer = @import("buffer.zig");
 const display = @import("display.zig");
@@ -10,10 +11,10 @@ pub const Editor = struct {
     allocator: std.mem.Allocator,
     term: terminal.Terminal,
     display: display.Display,
-    input_handler: input.InputHandler,
+   input_handler: input.InputHandler,
     text_buffer: buffer.TextBuffer,
-    clipboard: std.ArrayList(u8),
-    search_matches: std.ArrayList(buffer.SearchMatch),
+    clipboard: ManagedArrayList(u8),
+    search_matches: ManagedArrayList(buffer.SearchMatch),
     current_search_match: usize,
     running: bool,
 
@@ -21,8 +22,8 @@ pub const Editor = struct {
         var term = try terminal.Terminal.init();
         try term.enableRawMode();
 
-        const clipboard = std.ArrayList(u8).init(allocator);
-        const search_matches = std.ArrayList(buffer.SearchMatch).init(allocator);
+        const clipboard = ManagedArrayList(u8).init(allocator);
+        const search_matches = ManagedArrayList(buffer.SearchMatch).init(allocator);
 
         return Self{
             .allocator = allocator,
@@ -53,7 +54,7 @@ pub const Editor = struct {
     }
 
     pub fn run(self: *Self) !void {
-        terminal.hideCursor();
+        terminal.Terminal.hideCursor();
 
         while (self.running) {
             // Refresh display
@@ -90,9 +91,9 @@ pub const Editor = struct {
             try self.handleAction(action);
         }
 
-        terminal.showCursor();
-        terminal.clearScreen();
-        terminal.moveCursor(1, 1);
+        terminal.Terminal.showCursor();
+        terminal.Terminal.clearScreen();
+        terminal.Terminal.moveCursor(1, 1);
     }
 
     fn handleAction(self: *Self, action: input.EditorAction) !void {
@@ -142,8 +143,8 @@ pub const Editor = struct {
             // Text editing
             .insert_char => |ch| try self.text_buffer.insertChar(ch),
             .insert_newline => try self.text_buffer.insertNewline(),
-            .backspace => self.text_buffer.deleteChar(),
-            .delete => self.text_buffer.deleteCharForward(),
+            .backspace => try self.text_buffer.deleteChar(),
+            .delete => try self.text_buffer.deleteCharForward(),
             .cut_word_start => try self.handleCutWordStart(),
             .cut_word_end => try self.handleCutWordEnd(),
 
@@ -267,7 +268,7 @@ pub const Editor = struct {
         ;
 
         self.display.clear();
-        terminal.moveCursor(1, 1);
+        terminal.Terminal.moveCursor(1, 1);
         std.debug.print("{s}\n", .{help_text});
 
         _ = try terminal.Terminal.readKey(); // Wait for any key
@@ -392,7 +393,7 @@ pub const Editor = struct {
 
         // Delete characters from cursor to target_x
         while (self.text_buffer.getCursor().x > target_x) {
-            self.text_buffer.deleteChar();
+            try self.text_buffer.deleteChar();
         }
     }
 
@@ -411,7 +412,7 @@ pub const Editor = struct {
 
         // Delete characters from cursor to target_x
         while (self.text_buffer.getCursor().x < target_x) {
-            self.text_buffer.deleteCharForward();
+            try self.text_buffer.deleteCharForward();
         }
     }
 
@@ -486,6 +487,6 @@ pub const Editor = struct {
         self.display.renderMessage(message);
 
         // Brief pause to show message
-        std.time.sleep(500 * std.time.ns_per_ms);
+        std.Thread.sleep(500 * std.time.ns_per_ms);
     }
 };

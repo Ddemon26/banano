@@ -1,4 +1,5 @@
 const std = @import("std");
+const ManagedArrayList = std.array_list.Managed;
 const terminal = @import("terminal.zig");
 const buffer = @import("buffer.zig");
 
@@ -21,9 +22,9 @@ pub const Display = struct {
         self.terminal_size = try terminal.Terminal.getSize();
     }
 
-    pub fn clear() void {
-        terminal.clearScreen();
-        terminal.moveCursor(1, 1);
+    pub fn clear(_: Self) void {
+        terminal.Terminal.clearScreen();
+        terminal.Terminal.moveCursor(1, 1);
     }
 
     pub fn render(self: Self, text_buffer: buffer.TextBuffer) void {
@@ -31,7 +32,7 @@ pub const Display = struct {
         const viewport_width = self.terminal_size.cols;
 
         // Clear screen
-        clear();
+        self.clear();
 
         // Render text content
         renderTextContent(text_buffer, viewport_height, viewport_width);
@@ -43,7 +44,7 @@ pub const Display = struct {
         const cursor = text_buffer.getCursor();
         const screen_row = @min(cursor.y + 1, viewport_height);
         const screen_col = @min(cursor.x + 1, viewport_width);
-        terminal.moveCursor(screen_row, screen_col);
+        terminal.Terminal.moveCursor(screen_row, screen_col);
     }
 
     fn renderTextContent(text_buffer: buffer.TextBuffer, viewport_height: u16, viewport_width: u16) void {
@@ -61,8 +62,8 @@ pub const Display = struct {
         // Render visible lines
         for (0..viewport_height) |row| {
             const line_index = row + scroll_offset;
-            terminal.moveCursor(@intCast(row + 1), 1);
-            terminal.clearLine();
+            terminal.Terminal.moveCursor(@intCast(row + 1), 1);
+            terminal.Terminal.clearLine();
 
             if (line_index < line_count) {
                 if (text_buffer.getLine(line_index)) |line_content| {
@@ -94,14 +95,14 @@ pub const Display = struct {
 
     fn renderStatusBar(self: Self, text_buffer: buffer.TextBuffer) void {
         const status_row = self.terminal_size.rows - 1;
-        terminal.moveCursor(status_row, 1);
+        terminal.Terminal.moveCursor(status_row, 1);
 
         // Draw banana yellow status bar background
-        terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
-        terminal.setBold();
+        terminal.Terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
+        terminal.Terminal.setBold();
 
         // Build status bar content
-        var status_content = std.ArrayList(u8).init(self.allocator);
+        var status_content = ManagedArrayList(u8).init(self.allocator);
         defer status_content.deinit();
 
         // Filename or "New Buffer"
@@ -138,16 +139,16 @@ pub const Display = struct {
             std.debug.print("{s}", .{filler[0..filler_len]});
         }
 
-        terminal.resetColor();
+        terminal.Terminal.resetColor();
     }
 
     pub fn renderHelpBar(self: Self) void {
         const help_row = self.terminal_size.rows;
-        terminal.moveCursor(help_row, 1);
+        terminal.Terminal.moveCursor(help_row, 1);
 
         // Banana yellow help bar
-        terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.BRIGHT_YELLOW_BG);
-        terminal.setBold();
+        terminal.Terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.BRIGHT_YELLOW_BG);
+        terminal.Terminal.setBold();
 
         const help_text = " ^X Exit  ^O Save  ^W Write As  ^F Find  ^G Go To Line  ^K Cut  ^U Paste  ^C Cancel ";
         const help_len = @min(help_text.len, self.terminal_size.cols);
@@ -162,36 +163,36 @@ pub const Display = struct {
             std.debug.print("{s}", .{filler[0..filler_len]});
         }
 
-        terminal.resetColor();
+        terminal.Terminal.resetColor();
     }
 
     pub fn renderMessage(self: Self, message: []const u8) void {
         const message_row = self.terminal_size.rows;
-        terminal.moveCursor(message_row, 1);
+        terminal.Terminal.moveCursor(message_row, 1);
 
         // Clear the message line
-        terminal.clearLine();
+        terminal.Terminal.clearLine();
 
         // Yellow highlighted message
-        terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
-        terminal.setBold();
+        terminal.Terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
+        terminal.Terminal.setBold();
 
         const message_len = @min(message.len, self.terminal_size.cols - 2);
         std.debug.print(" {s}", .{message[0..message_len]});
 
-        terminal.resetColor();
+        terminal.Terminal.resetColor();
     }
 
     pub fn renderPrompt(self: Self, prompt: []const u8, input: []const u8) void {
         const prompt_row = self.terminal_size.rows;
-        terminal.moveCursor(prompt_row, 1);
+        terminal.Terminal.moveCursor(prompt_row, 1);
 
         // Clear the prompt line
-        terminal.clearLine();
+        terminal.Terminal.clearLine();
 
         // Yellow prompt with user input
-        terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
-        terminal.setBold();
+        terminal.Terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
+        terminal.Terminal.setBold();
 
         const total_len = prompt.len + input.len;
         const max_len = self.terminal_size.cols - 2;
@@ -199,10 +200,10 @@ pub const Display = struct {
 
         std.debug.print(" {s}{s}", .{ prompt, input[0..display_len - prompt.len] });
 
-        terminal.resetColor();
+        terminal.Terminal.resetColor();
     }
 
-    pub fn renderSearchResults(self: Self, text_buffer: buffer.TextBuffer, matches: []const buffer.TextBuffer.SearchMatch, current_match: usize) void {
+    pub fn renderSearchResults(self: Self, text_buffer: buffer.TextBuffer, matches: []const buffer.SearchMatch, current_match: usize) void {
         const viewport_height = self.terminal_size.rows - self.status_bar_height;
         const viewport_width = self.terminal_size.cols;
         const line_count = text_buffer.getLineCount();
@@ -219,8 +220,8 @@ pub const Display = struct {
         // Render lines with highlighting
         for (0..viewport_height) |row| {
             const line_index = row + scroll_offset;
-            terminal.moveCursor(@intCast(row + 1), 1);
-            terminal.clearLine();
+            terminal.Terminal.moveCursor(@intCast(row + 1), 1);
+            terminal.Terminal.clearLine();
 
             if (line_index < line_count) {
                 if (text_buffer.getLine(line_index)) |line_content| {
@@ -251,15 +252,15 @@ pub const Display = struct {
 
                     if (i == current_match) {
                         // Current match - bright yellow background
-                        terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.BRIGHT_YELLOW_BG);
-                        terminal.setBold();
+                        terminal.Terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.BRIGHT_YELLOW_BG);
+                        terminal.Terminal.setBold();
                     } else {
                         // Other matches - yellow background
-                        terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
+                        terminal.Terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
                     }
 
                     std.debug.print("{s}", .{line_content[col..col + match_len]});
-                    terminal.resetColor();
+                    terminal.Terminal.resetColor();
                     col += match_len;
                 }
             }
@@ -280,14 +281,14 @@ pub const Display = struct {
         }
     }
 
-    fn renderSearchStatusBar(self: Self, matches: []const buffer.TextBuffer.SearchMatch, current_match: usize) void {
+    fn renderSearchStatusBar(self: Self, matches: []const buffer.SearchMatch, current_match: usize) void {
         const status_row = self.terminal_size.rows - 1;
-        terminal.moveCursor(status_row, 1);
+        terminal.Terminal.moveCursor(status_row, 1);
 
-        terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
-        terminal.setBold();
+        terminal.Terminal.setColor(terminal.BANANA_COLORS.BLACK_FG, terminal.BANANA_COLORS.YELLOW_BG);
+        terminal.Terminal.setBold();
 
-        var status = std.ArrayList(u8).init(self.allocator);
+        var status = ManagedArrayList(u8).init(self.allocator);
         defer status.deinit();
 
         if (matches.len > 0) {
@@ -301,6 +302,6 @@ pub const Display = struct {
         const status_len = @min(status.items.len, self.terminal_size.cols);
         std.debug.print("{s}", .{status.items[0..status_len]});
 
-        terminal.resetColor();
+        terminal.Terminal.resetColor();
     }
 };

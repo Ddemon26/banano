@@ -1,4 +1,5 @@
 const std = @import("std");
+const ManagedArrayList = std.array_list.Managed;
 const terminal = @import("terminal.zig");
 
 pub const EditorMode = enum {
@@ -66,12 +67,12 @@ pub const InputHandler = struct {
 
     allocator: std.mem.Allocator,
     mode: EditorMode,
-    prompt_buffer: std.ArrayList(u8),
-    search_buffer: std.ArrayList(u8),
+    prompt_buffer: ManagedArrayList(u8),
+    search_buffer: ManagedArrayList(u8),
 
     pub fn init(allocator: std.mem.Allocator) Self {
-        const prompt_buffer = std.ArrayList(u8).init(allocator);
-        const search_buffer = std.ArrayList(u8).init(allocator);
+        const prompt_buffer = ManagedArrayList(u8).init(allocator);
+        const search_buffer = ManagedArrayList(u8).init(allocator);
         return Self{
             .allocator = allocator,
             .mode = .normal,
@@ -127,177 +128,157 @@ pub const InputHandler = struct {
     }
 
     fn processNormalKey(_: Self, key: terminal.Key) EditorAction {
-        switch (key) {
-            // Nano-style shortcuts
-            .char => |ch| {
+        return switch (key) {
+            .char => |ch| blk: {
                 if (ch >= 1 and ch <= 26) {
-                    // Control key
-                    return switch (ch) {
-                        'a' - 1 => .move_line_start,  // Ctrl+A
-                        'b' - 1 => .move_left,         // Ctrl+B
-                        'c' - 1 => .cancel,            // Ctrl+C
-                        'd' - 1 => .delete,            // Ctrl+D
-                        'e' - 1 => .move_line_end,    // Ctrl+E
-                        'f' - 1 => .find,              // Ctrl+F
-                        'g' - 1 => .goto_line,         // Ctrl+G
-                        'h' - 1 => .backspace,         // Ctrl+H
-                        'i' - 1 => .{ .insert_char = '\t' }, // Ctrl+I (Tab)
-                        'k' - 1 => .cut_line,          // Ctrl+K
-                        'l' - 1 => .move_right,        // Ctrl+L
-                        'm' - 1 => .insert_newline,    // Ctrl+M (Enter)
-                        'n' - 1 => .find_next,         // Ctrl+N
-                        'o' - 1 => .save,              // Ctrl+O
-                        'p' - 1 => .paste,             // Ctrl+P
-                        'q' - 1 => .quit,              // Ctrl+Q
-                        'r' - 1 => .find_previous,     // Ctrl+R
-                        's' - 1 => .save,              // Ctrl+S
-                        'u' - 1 => .undo,              // Ctrl+U
-                        'v' - 1 => .move_page_down,    // Ctrl+V
-                        'w' - 1 => .save_as,           // Ctrl+W
-                        'x' - 1 => .quit,              // Ctrl+X
-                        'y' - 1 => .copy_line,         // Ctrl+Y
-                        'z' - 1 => .undo,              // Ctrl+Z
-                        else => .none,
+                    break :blk switch (ch) {
+                        'a' - 1 => EditorAction.move_line_start, // Ctrl+A
+                        'b' - 1 => EditorAction.move_left,       // Ctrl+B
+                        'c' - 1 => EditorAction.cancel,          // Ctrl+C
+                        'd' - 1 => EditorAction.delete,          // Ctrl+D
+                        'e' - 1 => EditorAction.move_line_end,   // Ctrl+E
+                        'f' - 1 => EditorAction.find,            // Ctrl+F
+                        'g' - 1 => EditorAction.goto_line,       // Ctrl+G
+                        'h' - 1 => EditorAction.backspace,       // Ctrl+H
+                        'i' - 1 => EditorAction{ .insert_char = '\t' }, // Ctrl+I (Tab)
+                        'k' - 1 => EditorAction.cut_line,        // Ctrl+K
+                        'l' - 1 => EditorAction.move_right,      // Ctrl+L
+                        'm' - 1 => EditorAction.insert_newline,  // Ctrl+M (Enter)
+                        'n' - 1 => EditorAction.find_next,       // Ctrl+N
+                        'o' - 1 => EditorAction.save,            // Ctrl+O
+                        'p' - 1 => EditorAction.paste,           // Ctrl+P
+                        'q' - 1 => EditorAction.quit,            // Ctrl+Q
+                        'r' - 1 => EditorAction.find_previous,   // Ctrl+R
+                        's' - 1 => EditorAction.save,            // Ctrl+S
+                        'u' - 1 => EditorAction.undo,            // Ctrl+U
+                        'v' - 1 => EditorAction.move_page_down,  // Ctrl+V
+                        'w' - 1 => EditorAction.save_as,         // Ctrl+W
+                        'x' - 1 => EditorAction.quit,            // Ctrl+X
+                        'y' - 1 => EditorAction.copy_line,       // Ctrl+Y
+                        'z' - 1 => EditorAction.undo,            // Ctrl+Z
+                        else => EditorAction.none,
                     };
-                } else {
-                    // Regular character input
-                    return .{ .insert_char = ch };
                 }
+                break :blk EditorAction{ .insert_char = ch };
             },
-
-            // Special keys
-            .arrow_up => .move_up,
-            .arrow_down => .move_down,
-            .arrow_left => .move_left,
-            .arrow_right => .move_right,
-            .home => .move_line_start,
-            .end => .move_line_end,
-            .page_up => .move_page_up,
-            .page_down => .move_page_down,
-            .backspace => .backspace,
-            .delete => .delete,
-            .enter => .insert_newline,
-            .tab => .{ .insert_char = '\t' },
-            .escape => .cancel,
-
-            // Help key (F1)
-            else => .none,
-        }
+            .arrow_up => EditorAction.move_up,
+            .arrow_down => EditorAction.move_down,
+            .arrow_left => EditorAction.move_left,
+            .arrow_right => EditorAction.move_right,
+            .home => EditorAction.move_line_start,
+            .end => EditorAction.move_line_end,
+            .page_up => EditorAction.move_page_up,
+            .page_down => EditorAction.move_page_down,
+            .backspace => EditorAction.backspace,
+            .delete => EditorAction.delete,
+            .enter => EditorAction.insert_newline,
+            .tab => EditorAction{ .insert_char = '\t' },
+            .escape => EditorAction.cancel,
+            else => EditorAction.none,
+        };
     }
 
     fn processSearchKey(self: *Self, key: terminal.Key) EditorAction {
-        switch (key) {
-            .char => |ch| {
+        return switch (key) {
+            .char => |ch| blk: {
                 if (ch >= 1 and ch <= 26) {
-                    // Control key
-                    return switch (ch) {
-                        'c' - 1 => .search_cancel,      // Ctrl+C
-                        'g' - 1 => .search_cancel,      // Ctrl+G
-                        'm' - 1 => .search_submit,      // Ctrl+M (Enter)
-                        'r' - 1 => .search_cancel,      // Ctrl+R
-                        's' - 1 => .search_submit,      // Ctrl+S
-                        else => .none,
+                    break :blk switch (ch) {
+                        'c' - 1 => EditorAction.search_cancel,  // Ctrl+C
+                        'g' - 1 => EditorAction.search_cancel,  // Ctrl+G
+                        'm' - 1 => EditorAction.search_submit,  // Ctrl+M (Enter)
+                        'r' - 1 => EditorAction.search_cancel,  // Ctrl+R
+                        's' - 1 => EditorAction.search_submit,  // Ctrl+S
+                        else => EditorAction.none,
                     };
-                } else {
-                    // Regular character - add to search buffer
-                    self.search_buffer.append(ch) catch {};
-                    return .{ .search_input = ch };
                 }
+                self.search_buffer.append(ch) catch {};
+                break :blk EditorAction{ .search_input = ch };
             },
-
-            .enter => .search_submit,
-            .escape => .search_cancel,
-            .backspace => {
+            .enter => EditorAction.search_submit,
+            .escape => EditorAction.search_cancel,
+            .backspace => blk: {
                 if (self.search_buffer.items.len > 0) {
                     _ = self.search_buffer.pop();
-                    return .{ .search_input = 0 }; // Signal buffer update
+                    break :blk EditorAction{ .search_input = 0 };
                 }
-                return .none;
+                break :blk EditorAction.none;
             },
-            .delete => {
+            .delete => blk: {
                 if (self.search_buffer.items.len > 0) {
                     _ = self.search_buffer.pop();
-                    return .{ .search_input = 0 }; // Signal buffer update
+                    break :blk EditorAction{ .search_input = 0 };
                 }
-                return .none;
+                break :blk EditorAction.none;
             },
-            else => .none,
-        }
+            else => EditorAction.none,
+        };
     }
 
     fn processPromptKey(self: *Self, key: terminal.Key) EditorAction {
-        switch (key) {
-            .char => |ch| {
+        return switch (key) {
+            .char => |ch| blk: {
                 if (ch >= 1 and ch <= 26) {
-                    // Control key
-                    return switch (ch) {
-                        'c' - 1 => .prompt_cancel,      // Ctrl+C
-                        'g' - 1 => .prompt_cancel,      // Ctrl+G
-                        'm' - 1 => .prompt_submit,      // Ctrl+M (Enter)
-                        else => .none,
+                    break :blk switch (ch) {
+                        'c' - 1 => EditorAction.prompt_cancel,   // Ctrl+C
+                        'g' - 1 => EditorAction.prompt_cancel,   // Ctrl+G
+                        'm' - 1 => EditorAction.prompt_submit,   // Ctrl+M (Enter)
+                        else => EditorAction.none,
                     };
-                } else {
-                    // Regular character - add to prompt buffer
-                    self.prompt_buffer.append(ch) catch {};
-                    return .{ .prompt_input = ch };
                 }
+                self.prompt_buffer.append(ch) catch {};
+                break :blk EditorAction{ .prompt_input = ch };
             },
-
-            .enter => .prompt_submit,
-            .escape => .prompt_cancel,
-            .backspace => {
+            .enter => EditorAction.prompt_submit,
+            .escape => EditorAction.prompt_cancel,
+            .backspace => blk: {
                 if (self.prompt_buffer.items.len > 0) {
                     _ = self.prompt_buffer.pop();
-                    return .{ .prompt_input = 0 }; // Signal buffer update
+                    break :blk EditorAction{ .prompt_input = 0 };
                 }
-                return .none;
+                break :blk EditorAction.none;
             },
-            .delete => {
+            .delete => blk: {
                 if (self.prompt_buffer.items.len > 0) {
                     _ = self.prompt_buffer.pop();
-                    return .{ .prompt_input = 0 }; // Signal buffer update
+                    break :blk EditorAction{ .prompt_input = 0 };
                 }
-                return .none;
+                break :blk EditorAction.none;
             },
-            else => .none,
-        }
+            else => EditorAction.none,
+        };
     }
 
     fn processCommandKey(self: *Self, key: terminal.Key) EditorAction {
-        switch (key) {
-            .char => |ch| {
+        return switch (key) {
+            .char => |ch| blk: {
                 if (ch >= 1 and ch <= 26) {
-                    // Control key
-                    return switch (ch) {
-                        'c' - 1 => .prompt_cancel,      // Ctrl+C
-                        'g' - 1 => .prompt_cancel,      // Ctrl+G
-                        'm' - 1 => .prompt_submit,      // Ctrl+M (Enter)
-                        else => .none,
+                    break :blk switch (ch) {
+                        'c' - 1 => EditorAction.prompt_cancel,   // Ctrl+C
+                        'g' - 1 => EditorAction.prompt_cancel,   // Ctrl+G
+                        'm' - 1 => EditorAction.prompt_submit,   // Ctrl+M (Enter)
+                        else => EditorAction.none,
                     };
-                } else {
-                    // Regular character - add to prompt buffer
-                    self.prompt_buffer.append(ch) catch {};
-                    return .{ .prompt_input = ch };
                 }
+                self.prompt_buffer.append(ch) catch {};
+                break :blk EditorAction{ .prompt_input = ch };
             },
-
-            .enter => .prompt_submit,
-            .escape => .prompt_cancel,
-            .backspace => {
+            .enter => EditorAction.prompt_submit,
+            .escape => EditorAction.prompt_cancel,
+            .backspace => blk: {
                 if (self.prompt_buffer.items.len > 0) {
                     _ = self.prompt_buffer.pop();
-                    return .{ .prompt_input = 0 }; // Signal buffer update
+                    break :blk EditorAction{ .prompt_input = 0 };
                 }
-                return .none;
+                break :blk EditorAction.none;
             },
-            .delete => {
+            .delete => blk: {
                 if (self.prompt_buffer.items.len > 0) {
                     _ = self.prompt_buffer.pop();
-                    return .{ .prompt_input = 0 }; // Signal buffer update
+                    break :blk EditorAction{ .prompt_input = 0 };
                 }
-                return .none;
+                break :blk EditorAction.none;
             },
-            else => .none,
-        }
+            else => EditorAction.none,
+        };
     }
 };

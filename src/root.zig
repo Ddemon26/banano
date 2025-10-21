@@ -15,7 +15,7 @@ pub const VERSION = "0.1.0";
 pub const WELCOME_MESSAGE = "Welcome to Banano Editor - The Yellow Text Editor!";
 
 pub fn printWelcome() !void {
-    const stdout = std.io.getStdOut().writer();
+    const stdout = std.fs.File.stdout().writer();
     try stdout.print("{s}\n", .{WELCOME_MESSAGE});
 }
 
