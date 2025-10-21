@@ -122,13 +122,13 @@ pub const GapBuffer = struct {
         self.gap_start += str.len;
     }
 
-    pub fn deleteChar(self: *Self) !void {
+    pub fn deleteChar(self: *Self) void {
         if (self.gap_start > 0) {
             self.gap_start -= 1;
         }
     }
 
-    pub fn deleteCharForward(self: *Self) !void {
+    pub fn deleteCharForward(self: *Self) void {
         if (self.gap_end < self.buffer.items.len) {
             self.gap_end += 1;
         }
