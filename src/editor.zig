@@ -40,6 +40,7 @@ pub const Editor = struct {
 
     pub fn deinit(self: *Self) void {
         self.term.deinit();
+        self.display.deinit();
         self.text_buffer.deinit();
         self.clipboard.deinit();
         self.search_matches.deinit();
@@ -62,26 +63,24 @@ pub const Editor = struct {
 
             // Render based on current mode
             switch (self.input_handler.getMode()) {
-                .normal => {
-                    self.display.render(self.text_buffer);
-                    self.display.renderHelpBar();
-                },
-                .search => {
-                    self.display.renderSearchResults(
-                        self.text_buffer,
-                        self.search_matches.items,
-                        self.current_search_match,
-                    );
-                    self.display.renderPrompt("Search: ", self.input_handler.getSearchText());
-                },
-                .prompt => {
-                    self.display.render(self.text_buffer);
-                    self.display.renderPrompt("Command: ", self.input_handler.getPromptText());
-                },
-                .command => {
-                    self.display.render(self.text_buffer);
-                    self.display.renderPrompt("File: ", self.input_handler.getPromptText());
-                },
+                .normal => try self.display.renderNormal(self.text_buffer),
+                .search => try self.display.renderSearchView(
+                    self.text_buffer,
+                    self.search_matches.items,
+                    self.current_search_match,
+                    "Search: ",
+                    self.input_handler.getSearchText(),
+                ),
+                .prompt => try self.display.renderPromptView(
+                    self.text_buffer,
+                    "Command: ",
+                    self.input_handler.getPromptText(),
+                ),
+                .command => try self.display.renderPromptView(
+                    self.text_buffer,
+                    "File: ",
+                    self.input_handler.getPromptText(),
+                ),
             }
 
             // Read and process input
@@ -241,6 +240,7 @@ pub const Editor = struct {
     }
 
     fn handleHelp(self: *Self) !void {
+        _ = self;
         // Display help screen (simplified)
         const help_text =
             \\Banano Editor Help
@@ -267,7 +267,7 @@ pub const Editor = struct {
             \\Press any key to continue...
         ;
 
-        self.display.clear();
+        terminal.Terminal.clearScreen();
         terminal.Terminal.moveCursor(1, 1);
         std.debug.print("{s}\n", .{help_text});
 
@@ -481,10 +481,11 @@ pub const Editor = struct {
         self.input_handler.setMode(.normal);
     }
 
-    fn showMessage(self: Self, comptime format: []const u8, args: anytype) !void {
+    fn showMessage(self: *Self, comptime format: []const u8, args: anytype) !void {
         var message_buf: [256]u8 = undefined;
         const message = try std.fmt.bufPrint(&message_buf, format, args);
-        self.display.renderMessage(message);
+        var disp: *display.Display = &self.display;
+        try disp.renderMessage(self.text_buffer, message);
 
         // Brief pause to show message
         std.Thread.sleep(500 * std.time.ns_per_ms);
